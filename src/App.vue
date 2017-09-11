@@ -1,45 +1,75 @@
 <template lang="pug">
   v-app(light)
-    v-navigation-drawer(persistent, :mini-variant='miniVariant', :clipped='clipped', v-model='drawer', enable-resize-watcher)
+    v-navigation-drawer(persistent, :mini-variant='miniVariant', v-model='drawer', enable-resize-watcher)
       v-list
-        v-list-tile(value='true', v-for='(item, i) in items', :key='i')
+        v-list-tile(v-for="(route, i) in routes", :key="i", :to="route.path")
           v-list-tile-action
-            v-icon(light, v-html='item.icon')
+            v-icon(light v-html="route.icon")
           v-list-tile-content
-            v-list-tile-title(v-text='item.title')
+            v-list-tile-title(v-text="route.name")
     v-toolbar(fixed)
       v-toolbar-side-icon(@click.stop='drawer = !drawer', light)
       v-btn(icon, light, @click.stop='miniVariant = !miniVariant')
         v-icon(v-html="miniVariant ? 'chevron_right' : 'chevron_left'")
-      v-btn(icon, light, @click.stop='clipped = !clipped')
-        v-icon web
-      v-btn(icon, light, @click.stop='fixed = !fixed')
-        v-icon remove
       v-toolbar-title(v-text='title')
       v-spacer
-      v-btn(icon, light, @click.stop='rightDrawer = !rightDrawer')
-        v-icon menu
+      v-btn.white--text(icon v-if="!authenticated", @click="login")
+        v-icon account_circle
+      v-btn.white--text(icon v-if="authenticated", @click="logout")
+        v-icon exit_to_app
+
     main
       v-container(fluid)
-        v-slide-y-transition(mode='out-in')
-          router-view
+        v-slide-y-transition(mode="out-in")
+          router-view(
+            :auth="auth"
+            :authenticated="authenticated"
+            :admin="admin"
+          )
 </template>
 
 <script>
+  import AuthService from './services/AuthService'
+  const auth = new AuthService()
+  const { login, logout, authenticated, admin, authNotifier } = auth
+
   export default {
     data() {
+      authNotifier.on('authChange', authState => {
+        this.authenticated = authState.authenticated
+        this.admin = authState.admin
+      })
+
       return {
-        clipped: false,
+        auth,
+        authenticated,
+        admin,
         drawer: true,
-        fixed: false,
-        items: [
-          { icon: 'bubble_chart', title: 'Inspire' }
+        routes: [
+          { icon: 'person', name: 'Login', path: '/auth' },
+          { icon: 'weekend', name: 'Items', path: '/items' }
         ],
         miniVariant: false,
         right: true,
-        rightDrawer: false,
-        title: 'Vuetify.js'
+        rightDrawer: false
       }
+    },
+
+    computed: {
+      title() {
+        return this.$route.name
+      }
+    },
+
+    events: {
+      logout() {
+        this.logout()
+      }
+    },
+
+    methods: {
+      login,
+      logout
     }
   }
 </script>

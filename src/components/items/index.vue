@@ -3,7 +3,6 @@
     v-flex(xs12)
       v-card
         v-card-title
-          | Items
           v-spacer
           v-text-field(append-icon='search', label='Search', single-line, hide-details, v-model='search')
         v-data-table(
