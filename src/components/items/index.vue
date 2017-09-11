@@ -9,33 +9,38 @@
         v-data-table(
           :headers='headers'
           :items='items'
-          :search='search'
           :pagination.sync="pagination"
+          hide-actions
           :total-items="totalItems"
           :loading="loading"
         )
+
           template(slot='headerCell', scope='props')
             span(v-tooltip:bottom="{ 'html': props.header.text }")
               | {{ props.header.text }}
 
           template(slot='items', scope='props')
-            //- td(v-html="props.item.featured_photo_url")
+            td.text-xs-center
+              v-avatar.grey.lighten-4(:tile="false", style="margin-top: 3px; margin-bottom: 3px;")
+                img(:src='props.item.featured_photo.photo.tiny_thumb.url', :alt='props.item.description')
             td.text-xs-center {{ props.item.id }}
             td.text-xs-center {{ props.item.status }}
             td.text-xs-left {{ props.item.description }}
-            td.text-xs-left {{ props.item.account.primary_contact.last_name }}
-            td.text-xs-right {{ props.item.account_item_number }}
+            td.text-xs-left {{ props.item.account.primary_contact ? props.item.account.primary_contact.last_name : '' }}
+            td.text-xs-center {{ props.item.account_item_number }}
             td.text-xs-right {{ props.item.purchase_price_cents | currency }}
             td.text-xs-right {{ props.item.listing_price_cents | currency }}
             td.text-xs-right {{ props.item.sale_price_cents | currency }}
             td.text-xs-right {{ props.item.sold_at | timestamp }}
-          template(slot='pageText', scope='{ pageStart, pageStop }')
-            | From {{ pageStart }} to {{ pageStop }}
+
+        .text-xs-center
+          v-pagination(:length='pages', v-model='pagination.page', :total-visible='7')
 </template>
 
 <script>
   import { HTTP } from '../../http-common'
   import moment from 'moment'
+  import _ from 'lodash'
 
   export default {
     data() {
@@ -44,39 +49,49 @@
         totalItems: 0,
         items: [],
         loading: true,
-        pagination: {
-          // sortBy: 'column',
-          // page: 1,
-          // rowsPerPage: 25,
-          // descending: false,
-          // totalItems: 0
-        },
-        paginationParams: {
-          limit: 25,
-          offset: 0
-        },
         headers: [
-          // {
-          //   text: '',
-          //   align: 'left',
-          //   sortable: false,
-          //   value: 'featured_photo_url'
-          // },
-          { text: 'SKU', value: 'id' },
-          { text: 'Status', value: 'status' },
-          { text: 'Description', value: 'description' },
-          { text: 'Account', value: 'users.last_name' },
-          { text: 'Acct. Item No.', value: 'account_item_number' },
-          { text: 'Cost', value: 'purchase_price_cents' },
-          { text: 'Listing Price', value: 'listing_price_cents' },
-          { text: 'Sale Price', value: 'sale_price_cents' },
-          { text: 'Sale Date', value: 'sold_at' }
-        ]
+          { value: 'items.featured_photo', sortable: false, align: 'center' },
+          { text: 'SKU', value: 'items.id', align: 'center' },
+          { text: 'Status', value: 'items.status', align: 'center' },
+          { text: 'Description', value: 'items.description', align: 'left' },
+          { text: 'Account', value: 'accounts.slug', align: 'left' },
+          { text: 'Acct. Item No.', value: 'items.account_item_number', align: 'center' },
+          { text: 'Cost', value: 'items.purchase_price_cents', align: 'right' },
+          { text: 'Listing Price', value: 'items.listing_price_cents', align: 'right' },
+          { text: 'Sale Price', value: 'items.sale_price_cents', align: 'right' },
+          { text: 'Sale Date', value: 'items.sold_at', align: 'right' }
+        ],
+        pagination: {
+          rowsPerPage: 25,
+          page: 1
+        },
+        itemParams: {
+          // per_page: 25,
+          // offset: 0,
+          // sort_column: 'id',
+          // sort_direction: 'asc',
+          include: {
+            account: {
+              include: {
+                primary_contact: {
+                  only: 'last_name'
+                }
+              }
+            }
+          },
+          methods: ['featured_photo']
+        }
       }
     },
 
     watch: {
       pagination: {
+        handler() {
+          this.fetchItems()
+        },
+        deep: true
+      },
+      search: {
         handler() {
           this.fetchItems()
         },
@@ -88,34 +103,38 @@
       this.fetchItems()
     },
 
-    methods: {
-      fetchItems() {
-        this.loading = true
-        HTTP.get('/items.json', {
-          params: {
-            limit: this.paginationParams.limit,
-            offset: this.paginationParams.offset,
-            include: {
-              account: {
-                include: {
-                  primary_contact: {
-                    only: 'last_name'
-                  }
-                }
-              }
-            },
-            methods: ['featured_photo_url']
-          }
-        }).then((items) => {
-          this.loading = false
-          this.totalItems = parseInt(items.headers['x-total'])
-          this.paginationParams.offset = this.paginationParams.limit + this.paginationParams.limit
-          return this.items = items.data
-        })
-      },
+    computed: {
+      pages() {
+        return this.pagination.rowsPerPage ? Math.ceil(this.totalItems / this.pagination.rowsPerPage) : 0
+      }
+    },
 
-      imageTag(item) {
-        return item.feature.toHtml()
+    methods: {
+      fetchItems: _.debounce(
+        function() {
+          this.loading = true
+          this.itemParams.per_page = this.pagination.rowsPerPage
+          this.itemParams.offset = (this.pagination.page - 1) * this.pagination.rowsPerPage
+          this.itemParams.sort_column = this.pagination.sortBy
+          if (this.pagination.descending) {
+            this.itemParams.sort_direction = this.pagination.descending ? 'desc' : 'asc'
+          } else {
+            this.itemParams.sort_direction = null
+          }
+          this.itemParams.search = this.search
+          HTTP.get('/items.json', {
+            params: this.itemParams
+          }).then((items) => {
+            this.loading = false
+            this.totalItems = parseInt(items.headers['x-total'])
+            return this.items = items.data
+          })
+        }, 500
+      ),
+
+      changeSort(column) {
+        this.itemParams.sort_column = column
+        this.itemParams.sort_direction = this.pagination.sort_direction === 'asc' ? 'desc' : 'asc'
       }
     },
 
@@ -131,5 +150,5 @@
   }
 </script>
 
-<style lang="css">
+<style lang="css" scoped>
 </style>
