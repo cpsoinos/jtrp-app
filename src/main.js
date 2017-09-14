@@ -21,7 +21,7 @@ Vue.use(VueAxios, axios)
 //   router: require('@websanova/vue-auth/drivers/router/vue-router.2.x.js')
 // })
 
-axios.defaults.baseURL = 'http://localhost:3000'
+axios.defaults.baseURL = process.env.API_ENDPOINT
 axios.interceptors.response.use((response) => {
   return response
 }, function(error) {
