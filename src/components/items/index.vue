@@ -24,8 +24,10 @@
                 img(:src='props.item.featured_photo.photo.tiny_thumb.url', :alt='props.item.description')
             td.text-xs-center {{ props.item.id }}
             td.text-xs-center {{ props.item.status }}
-            td.text-xs-left {{ props.item.description }}
-            td.text-xs-left {{ props.item.account.primary_contact ? props.item.account.primary_contact.last_name : '' }}
+            td.text-xs-left
+              a(:href='itemUrl(props.item)') {{ props.item.description }}
+            td.text-xs-left
+              a(:href='accountUrl(props.item.account)') {{ props.item.account.primary_contact ? props.item.account.primary_contact.last_name : '' }}
             td.text-xs-center {{ props.item.account_item_number }}
             td.text-xs-right {{ props.item.purchase_price_cents | currency }}
             td.text-xs-right {{ props.item.listing_price_cents | currency }}
@@ -33,7 +35,7 @@
             td.text-xs-right {{ props.item.sold_at | timestamp }}
 
         .text-xs-center
-          v-pagination(:length='pages', v-model='pagination.page', :total-visible='7')
+          v-pagination(:length='pages()', v-model='pagination.page', :total-visible='7')
 </template>
 
 <script>
@@ -42,6 +44,12 @@
   import _ from 'lodash'
 
   export default {
+    props: [
+      'auth',
+      'authenticated',
+      'admin'
+    ],
+
     data() {
       return {
         search: '',
@@ -65,10 +73,6 @@
           page: 1
         },
         itemParams: {
-          // per_page: 25,
-          // offset: 0,
-          // sort_column: 'id',
-          // sort_direction: 'asc',
           include: {
             account: {
               include: {
@@ -102,12 +106,6 @@
       this.fetchItems()
     },
 
-    computed: {
-      pages() {
-        return this.pagination.rowsPerPage ? Math.ceil(this.totalItems / this.pagination.rowsPerPage) : 0
-      }
-    },
-
     methods: {
       fetchItems: _.debounce(
         function() {
@@ -121,19 +119,31 @@
             this.itemParams.sort_direction = null
           }
           this.itemParams.search = this.search
-          HTTP.get('/items.json', {
+          HTTP.get('/api/items.json', {
             params: this.itemParams
           }).then((items) => {
             this.loading = false
-            this.totalItems = parseInt(items.headers['x-total'])
+            this.totalItems = parseInt(items.headers['x-filtered-total'])
             return this.items = items.data
           })
         }, 500
       ),
 
+      pages() {
+        return this.pagination.rowsPerPage ? Math.ceil(this.totalItems / this.pagination.rowsPerPage) : 0
+      },
+
       changeSort(column) {
         this.itemParams.sort_column = column
         this.itemParams.sort_direction = this.pagination.sort_direction === 'asc' ? 'desc' : 'asc'
+      },
+
+      itemUrl(item) {
+        return process.env.API_ENDPOINT + '/items/' + item.slug
+      },
+
+      accountUrl(account) {
+        return process.env.API_ENDPOINT + '/accounts/' + account.slug
       }
     },
 

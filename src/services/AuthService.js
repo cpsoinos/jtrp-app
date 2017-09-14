@@ -4,6 +4,11 @@ import { AUTH_CONFIG } from './auth0-variables'
 import EventEmitter from 'event-emitter'
 import decode from 'jwt-decode'
 import Router from 'vue-router'
+import axios from 'axios'
+
+if (localStorage.getItem('access_token')) {
+  axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('access_token')
+}
 
 export default class AuthService {
   authenticated = this.isAuthenticated()
@@ -31,9 +36,10 @@ export default class AuthService {
     oidcConformant: true,
     autoclose: true,
     auth: {
+      audience: AUTH_CONFIG.audience,
       responseType: 'token id_token',
       params: {
-        scope: 'openid profile email'
+        scope: AUTH_CONFIG.scope
       }
     }
   })
@@ -52,9 +58,10 @@ export default class AuthService {
       localStorage.setItem('access_token', authResult.accessToken)
       localStorage.setItem('id_token', authResult.idToken)
       localStorage.setItem('expires_at', expiresAt)
+      axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('access_token')
       this.authNotifier.emit('authChange', { authenticated: true, admin: this.isAdmin() })
       // navigate to the events route
-      this.router.push('/events')
+      this.router.push('/items')
     }
   }
 

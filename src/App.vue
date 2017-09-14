@@ -7,7 +7,7 @@
             v-icon(light v-html="route.icon")
           v-list-tile-content
             v-list-tile-title(v-text="route.name")
-    v-toolbar(fixed)
+    v-toolbar.purple(dark fixed)
       v-toolbar-side-icon(@click.stop='drawer = !drawer', light)
       v-btn(icon, light, @click.stop='miniVariant = !miniVariant')
         v-icon(v-html="miniVariant ? 'chevron_right' : 'chevron_left'")
@@ -46,7 +46,6 @@
         admin,
         drawer: true,
         routes: [
-          { icon: 'person', name: 'Login', path: '/auth' },
           { icon: 'weekend', name: 'Items', path: '/items' }
         ],
         miniVariant: false,
